@@ -1,9 +1,7 @@
-import re
-from typing import List, Tuple, Optional
+from typing import List
 
-# Jenis-jenis token
+
 class TokenType:
-    # Kata kunci
     FUNGSI = "FUNGSI"
     KEMBALI = "KEMBALI"
     CETAK = "CETAK"
@@ -22,14 +20,12 @@ class TokenType:
     ATAU = "ATAU"
     NOT = "NOT"
 
-    # Tipe data & anotasi
     INT8 = "INT8"
     INT128 = "INT128"
     ACCELERATOR = "ACCELERATOR"
     PRECISION = "PRECISION"
     PARALLEL = "PARALLEL"
 
-    # Simbol
     IDENTIFIER = "IDENTIFIER"
     ANGKA = "ANGKA"
     TEKS = "TEKS"
@@ -58,15 +54,17 @@ class TokenType:
     NEWLINE = "NEWLINE"
     EOF = "EOF"
 
+
 class Token:
-    def __init__(self, tipe: str, nilai: any, baris: int, kolom: int):
+    def __init__(self, tipe: str, nilai, baris: int, kolom: int):
         self.tipe = tipe
         self.nilai = nilai
         self.baris = baris
         self.kolom = kolom
 
     def __repr__(self):
-        return f"Token({self.tipe}, {repr(self.nilai)}, baris={self.baris})"
+        return f"Token({self.tipe}, {self.nilai!r}, baris={self.baris})"
+
 
 class Lexer:
     def __init__(self, kode: str):
@@ -75,8 +73,6 @@ class Lexer:
         self.baris = 1
         self.kolom = 1
         self.token = []
-
-        # Kata kunci
         self.keyword = {
             "fungsi": TokenType.FUNGSI,
             "kembali": TokenType.KEMBALI,
@@ -97,8 +93,6 @@ class Lexer:
             "not": TokenType.NOT,
             "tidak": TokenType.NOT,
         }
-
-        # Anotasi
         self.annotations = {
             "@int8": TokenType.INT8,
             "@int128": TokenType.INT128,
@@ -111,208 +105,166 @@ class Lexer:
         while self.pos < len(self.kode):
             char = self.kode[self.pos]
 
-            # Abaikan spasi
-            if char == ' ' or char == '\t':
+            if char in " \t\r":
                 self.pos += 1
                 self.kolom += 1
                 continue
 
-            # Baris baru
-            if char == '\n':
-                self.token.append(Token(TokenType.NEWLINE, '\n', self.baris, self.kolom))
+            if char == "\n":
+                self.token.append(Token(TokenType.NEWLINE, "\n", self.baris, self.kolom))
                 self.pos += 1
                 self.baris += 1
                 self.kolom = 1
                 continue
 
-            # Komentar
-            if char == '/' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == '/':
+            if char == "/" and self._ikuti("/"):
                 self.pos += 2
-                while self.pos < len(self.kode) and self.kode[self.pos] != '\n':
+                self.kolom += 2
+                while self.pos < len(self.kode) and self.kode[self.pos] != "\n":
                     self.pos += 1
+                    self.kolom += 1
                 continue
 
-            # Teks (string)
-            if char == '"' or char == "'":
+            if char in "\"'":
                 self._token_teks(char)
                 continue
 
-            # Angka
-            if char.isdigit() or (char == '-' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1].isdigit()):
+            if char.isdigit() or (
+                char == "-" and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1].isdigit()
+            ):
                 self._token_angka()
                 continue
 
-            # Identifier atau kata kunci
-            if char.isalpha() or char == '_':
+            if char.isalpha() or char == "_":
                 self._token_identifier()
                 continue
 
-            # Anotasi @
-            if char == '@':
+            if char == "@":
                 self._token_anotasi()
                 continue
 
-            # Simbol satu karakter
-            simbol_map = {
-                '(': TokenType.KURUNG_BUKA,
-                ')': TokenType.KURUNG_TUTUP,
-                '[': TokenType.KURUNG_KOTAK_BUKA,
-                ']': TokenType.KURUNG_KOTAK_TUTUP,
-                '{': TokenType.KURUNG_KURUNG_BUKA,
-                '}': TokenType.KURUNG_KURUNG_TUTUP,
-                ',': TokenType.KOMA,
-                ':': TokenType.TITIK_DUA,
-                ';': TokenType.TITIK_KOMA,
-                '+': TokenType.TAMBAH,
-                '-': TokenType.KURANG,
-                '*': TokenType.KALI,
-                '/': TokenType.BAGI,
-                '%': TokenType.MODULUS,
-                '>': TokenType.LEBIH_BESAR,
-                '<': TokenType.LEBIH_KECIL,
+            # Operator multi-karakter harus diuji sebelum operator tunggal.
+            operator_dua = {
+                "==": (TokenType.SAMA_DENGAN_DUA, "=="),
+                "!=": (TokenType.TIDAK_SAMA, "!="),
+                ">=": (TokenType.LEBIH_BESAR_SAMA, ">="),
+                "<=": (TokenType.LEBIH_KECIL_SAMA, "<="),
+                "&&": (TokenType.DAN, "&&"),
+                "||": (TokenType.ATAU, "||"),
             }
+            pasangan = self.kode[self.pos:self.pos + 2]
+            if pasangan in operator_dua:
+                tipe, nilai = operator_dua[pasangan]
+                self.token.append(Token(tipe, nilai, self.baris, self.kolom))
+                self.pos += 2
+                self.kolom += 2
+                continue
 
-            if char in simbol_map:
-                self.token.append(Token(simbol_map[char], char, self.baris, self.kolom))
+            simbol = {
+                "(": TokenType.KURUNG_BUKA,
+                ")": TokenType.KURUNG_TUTUP,
+                "[": TokenType.KURUNG_KOTAK_BUKA,
+                "]": TokenType.KURUNG_KOTAK_TUTUP,
+                "{": TokenType.KURUNG_KURUNG_BUKA,
+                "}": TokenType.KURUNG_KURUNG_TUTUP,
+                ",": TokenType.KOMA,
+                ":": TokenType.TITIK_DUA,
+                ";": TokenType.TITIK_KOMA,
+                "=": TokenType.SAMA_DENGAN,
+                "+": TokenType.TAMBAH,
+                "-": TokenType.KURANG,
+                "*": TokenType.KALI,
+                "/": TokenType.BAGI,
+                "%": TokenType.MODULUS,
+                ">": TokenType.LEBIH_BESAR,
+                "<": TokenType.LEBIH_KECIL,
+            }
+            if char in simbol:
+                self.token.append(Token(simbol[char], char, self.baris, self.kolom))
                 self.pos += 1
                 self.kolom += 1
                 continue
 
-            # Simbol dua karakter
-            if char == '=' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == '=':
-                self.token.append(Token(TokenType.SAMA_DENGAN_DUA, '==', self.baris, self.kolom))
-                self.pos += 2
-                self.kolom += 2
-                continue
-
-            if char == '!' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == '=':
-                self.token.append(Token(TokenType.TIDAK_SAMA, '!=', self.baris, self.kolom))
-                self.pos += 2
-                self.kolom += 2
-                continue
-
-            if char == '>' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == '=':
-                self.token.append(Token(TokenType.LEBIH_BESAR_SAMA, '>=', self.baris, self.kolom))
-                self.pos += 2
-                self.kolom += 2
-                continue
-
-            if char == '<' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == '=':
-                self.token.append(Token(TokenType.LEBIH_KECIL_SAMA, '<=', self.baris, self.kolom))
-                self.pos += 2
-                self.kolom += 2
-                continue
-
-            if char == '=':
-                self.token.append(Token(TokenType.SAMA_DENGAN, '=', self.baris, self.kolom))
-                self.pos += 1
-                self.kolom += 1
-                continue
-
-            # Operator logika
-            if char == '&' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == '&':
-                self.token.append(Token(TokenType.DAN, '&&', self.baris, self.kolom))
-                self.pos += 2
-                self.kolom += 2
-                continue
-
-            if char == '|' and self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == '|':
-                self.token.append(Token(TokenType.ATAU, '||', self.baris, self.kolom))
-                self.pos += 2
-                self.kolom += 2
-                continue
-
-            # Error
-            raise SyntaxError(f"Karakter tidak dikenal: '{char}' di baris {self.baris}, kolom {self.kolom}")
+            raise SyntaxError(
+                f"Karakter tidak dikenal: '{char}' di baris {self.baris}, kolom {self.kolom}"
+            )
 
         self.token.append(Token(TokenType.EOF, None, self.baris, self.kolom))
         return self.token
 
+    def _ikuti(self, nilai: str) -> bool:
+        return self.pos + 1 < len(self.kode) and self.kode[self.pos + 1] == nilai
+
     def _token_teks(self, tanda: str):
-        self.pos += 1
-        self.kolom += 1
         mulai_baris = self.baris
         mulai_kolom = self.kolom
-        teks = ""
+        self.pos += 1
+        self.kolom += 1
+        teks = []
 
         while self.pos < len(self.kode) and self.kode[self.pos] != tanda:
-            if self.kode[self.pos] == '\n':
+            if self.kode[self.pos] == "\n":
                 self.baris += 1
                 self.kolom = 1
-            teks += self.kode[self.pos]
+            teks.append(self.kode[self.pos])
             self.pos += 1
             self.kolom += 1
 
         if self.pos >= len(self.kode):
             raise SyntaxError(f"Teks tidak ditutup di baris {mulai_baris}")
 
-        self.pos += 1  # Lewati tanda tutup
+        self.pos += 1
         self.kolom += 1
-        self.token.append(Token(TokenType.TEKS, teks, mulai_baris, mulai_kolom))
+        self.token.append(Token(TokenType.TEKS, "".join(teks), mulai_baris, mulai_kolom))
 
     def _token_angka(self):
         mulai_baris = self.baris
         mulai_kolom = self.kolom
-        angka = ""
-
-        # Tanda negatif
-        if self.kode[self.pos] == '-':
-            angka += '-'
+        awal = self.pos
+        if self.kode[self.pos] == "-":
             self.pos += 1
             self.kolom += 1
-
-        # Angka bulat
         while self.pos < len(self.kode) and self.kode[self.pos].isdigit():
-            angka += self.kode[self.pos]
             self.pos += 1
             self.kolom += 1
-
-        # Pecahan
-        if self.pos < len(self.kode) and self.kode[self.pos] == '.':
-            angka += '.'
+        if self.pos < len(self.kode) and self.kode[self.pos] == ".":
             self.pos += 1
             self.kolom += 1
             while self.pos < len(self.kode) and self.kode[self.pos].isdigit():
-                angka += self.kode[self.pos]
                 self.pos += 1
                 self.kolom += 1
-
-        # Ubah ke float atau int
-        if '.' in angka:
-            nilai = float(angka)
-        else:
-            nilai = int(angka)
-
+        teks = self.kode[awal:self.pos]
+        nilai = float(teks) if "." in teks else int(teks)
         self.token.append(Token(TokenType.ANGKA, nilai, mulai_baris, mulai_kolom))
 
     def _token_identifier(self):
         mulai_baris = self.baris
         mulai_kolom = self.kolom
-        identitas = ""
-
-        while self.pos < len(self.kode) and (self.kode[self.pos].isalnum() or self.kode[self.pos] == '_'):
-            identitas += self.kode[self.pos]
+        awal = self.pos
+        while self.pos < len(self.kode) and (
+            self.kode[self.pos].isalnum() or self.kode[self.pos] == "_"
+        ):
             self.pos += 1
             self.kolom += 1
-
-        # Cek apakah ini kata kunci
+        identitas_asli = self.kode[awal:self.pos]
+        identitas = identitas_asli.lower()
         tipe = self.keyword.get(identitas, TokenType.IDENTIFIER)
-        self.token.append(Token(tipe, identitas, mulai_baris, mulai_kolom))
+        nilai = identitas if tipe != TokenType.IDENTIFIER else identitas_asli
+        self.token.append(Token(tipe, nilai, mulai_baris, mulai_kolom))
 
     def _token_anotasi(self):
         mulai_baris = self.baris
         mulai_kolom = self.kolom
-        anotasi = "@"
+        awal = self.pos
         self.pos += 1
         self.kolom += 1
-
-        while self.pos < len(self.kode) and (self.kode[self.pos].isalpha() or self.kode[self.pos] == '_'):
-            anotasi += self.kode[self.pos]
+        while self.pos < len(self.kode) and (
+            self.kode[self.pos].isalnum() or self.kode[self.pos] == "_"
+        ):
             self.pos += 1
             self.kolom += 1
-
+        anotasi = self.kode[awal:self.pos].lower()
         tipe = self.annotations.get(anotasi)
-        if tipe:
-            self.token.append(Token(tipe, anotasi, mulai_baris, mulai_kolom))
-        else:
+        if tipe is None:
             raise SyntaxError(f"Anotasi tidak dikenal: '{anotasi}' di baris {mulai_baris}")
+        self.token.append(Token(tipe, anotasi, mulai_baris, mulai_kolom))
