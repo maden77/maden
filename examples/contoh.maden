@@ -1,0 +1,10 @@
+fungsi tambah(a, b) {
+    kembali a + b
+}
+
+fungsi main() {
+    cetak("Halo dari Maden!")
+    cetak(tambah(2, 3))
+}
+
+main()
