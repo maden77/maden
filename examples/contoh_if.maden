@@ -1,0 +1,5 @@
+jika 5 > 3 {
+    cetak("Benar")
+} selain {
+    cetak("Salah")
+}
