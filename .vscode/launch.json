@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Maden file",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/maden_main.py",
+      "args": ["${workspaceFolder}/examples/basic.maden"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}
