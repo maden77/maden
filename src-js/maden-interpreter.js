@@ -17,7 +17,8 @@ class Environment {
     if (this.parent) {
       return this.parent.assign(name, value);
     }
-    throw new Error(`Variabel '${name}' tidak ditemukan`);
+    // Assignment pertama membuat variabel baru di scope saat ini.
+    return this.define(name, value);
   }
 
   lookup(name) {
@@ -46,40 +47,32 @@ class MadenInterpreter {
     if (!node) return null;
 
     switch (node.type) {
-      case 'Program':
+      case 'Program': {
         let result = null;
-        for (const stmt of node.statements) {
-          result = this.evaluate(stmt, env);
-        }
+        for (const stmt of node.statements) result = this.evaluate(stmt, env);
         return result;
+      }
 
       case 'FunctionDeclaration': {
         const fn = (...args) => {
           const localEnv = new Environment(env);
           node.params.forEach((param, i) => localEnv.define(param, args[i]));
-          let value = null;
-          for (const stmt of node.body.statements) {
-            try {
-              value = this.evaluate(stmt, localEnv);
-            } catch (err) {
-              if (err && err.name === 'ReturnSignal') {
-                return err.value;
-              }
-              throw err;
-            }
+          try {
+            return this.evaluate(node.body, localEnv);
+          } catch (error) {
+            if (error && error.name === 'ReturnSignal') return error.value;
+            throw error;
           }
-          return value;
         };
         env.define(node.name, fn);
         return fn;
       }
 
-      case 'ReturnStatement': {
-        if (node.value === null || node.value === undefined) {
-          throw { name: 'ReturnSignal', value: null };
-        }
-        throw { name: 'ReturnSignal', value: this.evaluate(node.value, env) };
-      }
+      case 'ReturnStatement':
+        throw {
+          name: 'ReturnSignal',
+          value: node.value == null ? null : this.evaluate(node.value, env),
+        };
 
       case 'PrintStatement': {
         const value = this.evaluate(node.expression, env);
@@ -92,38 +85,30 @@ class MadenInterpreter {
 
       case 'BlockStatement': {
         let result = null;
-        for (const stmt of node.statements) {
-          result = this.evaluate(stmt, env);
-        }
+        for (const stmt of node.statements) result = this.evaluate(stmt, env);
         return result;
       }
 
-      case 'IfStatement': {
-        const cond = this.evaluate(node.condition, env);
-        if (cond) {
-          return this.evaluate(node.thenBranch, env);
-        }
-        if (node.elseBranch) {
-          return this.evaluate(node.elseBranch, env);
-        }
-        return null;
-      }
+      case 'IfStatement':
+        if (this.evaluate(node.condition, env)) return this.evaluate(node.thenBranch, env);
+        return node.elseBranch ? this.evaluate(node.elseBranch, env) : null;
 
       case 'WhileStatement': {
         let result = null;
-        while (this.evaluate(node.condition, env)) {
-          result = this.evaluate(node.body, env);
-        }
+        while (this.evaluate(node.condition, env)) result = this.evaluate(node.body, env);
         return result;
       }
 
       case 'ForStatement': {
         const iterable = this.evaluate(node.iterable, env);
+        if (iterable == null || typeof iterable[Symbol.iterator] !== 'function') {
+          throw new Error(`Nilai untuk 'untuk setiap' harus bisa diulang`);
+        }
         let result = null;
         for (const item of iterable) {
-          const localEnv = new Environment(env);
-          localEnv.define(node.variable, item);
-          result = this.evaluate(node.body, localEnv);
+          const loopEnv = new Environment(env);
+          loopEnv.define(node.variable, item);
+          result = this.evaluate(node.body, loopEnv);
         }
         return result;
       }
@@ -135,9 +120,13 @@ class MadenInterpreter {
         return node.value;
 
       case 'BinaryExpression': {
+        // Operator logika dievaluasi short-circuit.
         const left = this.evaluate(node.left, env);
-        const right = this.evaluate(node.right, env);
+        if (node.operator === '&&') return left && this.evaluate(node.right, env);
+        if (node.operator === '||') return left || this.evaluate(node.right, env);
+        if (node.operator === 'not') return !this.evaluate(node.right, env);
 
+        const right = this.evaluate(node.right, env);
         switch (node.operator) {
           case '+': return left + right;
           case '-': return left - right;
@@ -150,21 +139,14 @@ class MadenInterpreter {
           case '<=': return left <= right;
           case '==': return left === right;
           case '!=': return left !== right;
-          case '&&': return left && right;
-          case '||': return left || right;
-          case 'not': return !right;
-          default:
-            throw new Error(`Operator tidak didukung: ${node.operator}`);
+          default: throw new Error(`Operator tidak didukung: ${node.operator}`);
         }
       }
 
       case 'CallExpression': {
         const callee = env.lookup(node.callee);
-        if (typeof callee !== 'function') {
-          throw new Error(`'${node.callee}' bukan fungsi`);
-        }
-        const args = node.args.map(arg => this.evaluate(arg, env));
-        return callee(...args);
+        if (typeof callee !== 'function') throw new Error(`'${node.callee}' bukan fungsi`);
+        return callee(...node.args.map(arg => this.evaluate(arg, env)));
       }
 
       default:
