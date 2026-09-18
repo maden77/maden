@@ -1,0 +1,9 @@
+{
+  "name": "maden",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bahasa pemrograman berbahasa Indonesia yang berjalan di browser tanpa Python.",
+  "scripts": {
+    "test": "node tests-js/maden-smoke.test.js"
+  }
+}
