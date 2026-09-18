@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maden - JavaScript</title>
+<style>
+  body { font-family: sans-serif; margin: 0; padding: 16px; background: #f2f2f2; }
+  h2 { margin-top: 0; }
+  textarea { width: 100%; min-height: 300px; box-sizing: border-box; font: 15px monospace; padding: 10px; }
+  button { margin: 10px 0; padding: 10px 18px; font-size: 16px; }
+  pre { background: #111; color: #0f0; padding: 12px; min-height: 80px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h2>Maden tanpa Python</h2>
+<textarea id="kode">fungsi tambah(a, b) {
+    kembali a + b
+}
+
+cetak("Halo dari Maden!")
+cetak(tambah(2, 3))</textarea>
+<br>
+<button onclick="jalankan()">Jalankan</button>
+<pre id="hasil"></pre>
+
+<script>
+function ubahKeJavaScript(source) {
+  const baris = source.replace(/\r/g, '').split('\n');
+  const hasil = [];
+  let blok = [];
+
+  for (let i = 0; i < baris.length; i++) {
+    let s = baris[i].trim();
+    if (!s || s.startsWith('//')) continue;
+
+    s = s.replace(/^fungsi\s+([A-Za-z_]\w*)\s*\((.*?)\)\s*\{?$/,
+      'function $1($2) {');
+    s = s.replace(/^kembali\b/, 'return');
+    s = s.replace(/^cetak\s*\(/, 'print(');
+    s = s.replace(/^jika\s+(.+?)\s*\{\s*$/, 'if ($1) {');
+    s = s.replace(/^selain\s+jika\s+(.+?)\s*\{\s*$/, 'else if ($1) {');
+    s = s.replace(/^selain\s*\{\s*$/, 'else {');
+    s = s.replace(/^ulangi\s+selama\s+(.+?)\s*\{\s*$/, 'while ($1) {');
+    s = s.replace(/^untuk\s+setiap\s+(\w+)\s+dalam\s+(.+?)\s*\{\s*$/, 'for (const $1 of $2) {');
+    s = s.replace(/^ulangi\s*\((.*?);(.*?);(.*?)\)\s*\{\s*$/, 'for ($1; $2; $3) {');
+
+    s = s.replace(/\bbenar\b/g, 'true');
+    s = s.replace(/\bsalah\b/g, 'false');
+    s = s.replace(/\bkosong\b/g, 'null');
+    s = s.replace(/\bdan\b/g, '&&');
+    s = s.replace(/\batau\b/g, '||');
+    s = s.replace(/\btidak\b/g, '!');
+
+    // Tutup blok Maden tetap menggunakan kurung JavaScript.
+    hasil.push(s);
+  }
+
+  return hasil.join('\n');
+}
+
+function jalankan() {
+  const areaHasil = document.getElementById('hasil');
+  const source = document.getElementById('kode').value;
+  const kodeJS = ubahKeJavaScript(source);
+  const keluaran = [];
+  const print = (...nilai) => keluaran.push(nilai.join(' '));
+
+  try {
+    // File ini memang menjalankan kode yang ditulis sendiri di editor.
+    new Function('print', kodeJS)(print);
+    areaHasil.textContent = keluaran.join('\n');
+  } catch (error) {
+    areaHasil.textContent = 'Error: ' + error.message + '\n\nJavaScript hasil konversi:\n' + kodeJS;
+  }
+}
+</script>
+</body>
+</html>
