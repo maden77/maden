@@ -2,8 +2,6 @@ from maden_parser import *
 
 
 class Transpiler:
-    """Transpile AST Maden menjadi kode Python yang valid."""
-
     def __init__(self):
         self.kode = []
         self.indentasi = 0
@@ -11,7 +9,6 @@ class Transpiler:
         self.anotasi_aktif = []
 
     def transpile(self, node) -> str:
-        # Setiap proses transpile dimulai dari state yang bersih.
         if isinstance(node, Program):
             self.kode = [
                 "# Hasil transpile dari bahasa Maden",
@@ -29,17 +26,17 @@ class Transpiler:
             self.anotasi_aktif = node.anotasi
 
             for anotasi in node.anotasi:
-                if anotasi.tipe == "PARALLEL":
-                    self.kode.append(self._baris(f"# @parallel - fungsi {node.nama} akan multi-thread"))
-                elif anotasi.tipe == "ACCELERATOR":
-                    self.kode.append(self._baris(f"# @accelerator(NPU) - fungsi {node.nama} pakai NPU"))
+                if getattr(anotasi, "tipe", None) == "PARALLEL":
+                    self.kode.append(self._tab() + f"# @parallel - fungsi {node.nama} akan multi-thread")
+                elif getattr(anotasi, "tipe", None) == "ACCELERATOR":
+                    self.kode.append(self._tab() + f"# @accelerator(NPU) - fungsi {node.nama} pakai NPU")
 
-            params = ", ".join(self._nama_parameter(param) for param in node.parameter)
-            self.kode.append(self._baris(f"def {node.nama}({params}):"))
+            params = ", ".join(self._param_ke_nama(p) for p in node.parameter)
+            self.kode.append(self._tab() + f"def {node.nama}({params}):")
             self.indentasi += 1
 
             if not node.tubuh:
-                self.kode.append(self._baris("pass"))
+                self.kode.append(self._tab() + "pass")
             else:
                 for stmt in node.tubuh:
                     self.transpile(stmt)
@@ -52,68 +49,67 @@ class Transpiler:
 
         if isinstance(node, PernyataanKembali):
             nilai = "None" if node.nilai is None else self.transpile(node.nilai)
-            self.kode.append(self._baris(f"return {nilai}"))
+            self.kode.append(self._tab() + f"return {nilai}")
             return None
 
         if isinstance(node, PernyataanCetak):
-            self.kode.append(self._baris(f"print({self.transpile(node.ekspresi)})"))
+            self.kode.append(self._tab() + f"print({self.transpile(node.ekspresi)})")
             return None
 
         if isinstance(node, PernyataanJika):
-            self.kode.append(self._baris(f"if {self.transpile(node.kondisi)}:"))
+            self.kode.append(self._tab() + f"if {self.transpile(node.kondisi)}:")
             self.indentasi += 1
             self._transpile_blok(node.tubuh)
             self.indentasi -= 1
 
-            selain = node.selain
-            if isinstance(selain, PernyataanJika):
-                self.kode.append(self._baris(f"elif {self.transpile(selain.kondisi)}:"))
-                self.indentasi += 1
-                self._transpile_blok(selain.tubuh)
-                self.indentasi -= 1
-            elif selain is not None:
-                self.kode.append(self._baris("else:"))
-                self.indentasi += 1
-                self._transpile_blok(selain)
-                self.indentasi -= 1
+            if node.selain is not None:
+                if isinstance(node.selain, PernyataanJika):
+                    self.kode.append(self._tab() + f"elif {self.transpile(node.selain.kondisi)}:")
+                    self.indentasi += 1
+                    self._transpile_blok(node.selain.tubuh)
+                    self.indentasi -= 1
+                else:
+                    self.kode.append(self._tab() + "else:")
+                    self.indentasi += 1
+                    self._transpile_blok(node.selain)
+                    self.indentasi -= 1
             return None
 
         if isinstance(node, PernyataanUlangi):
-            self._transpile_statement_line(node.inisialisasi)
-            self.kode.append(self._baris(f"while {self.transpile(node.kondisi)}:"))
+            self._transpile_statement(node.inisialisasi)
+            self.kode.append(self._tab() + f"while {self.transpile(node.kondisi)}:")
             self.indentasi += 1
             self._transpile_blok(node.tubuh)
-            self._transpile_statement_line(node.iterasi)
+            self._transpile_statement(node.iterasi)
             self.indentasi -= 1
             return None
 
         if isinstance(node, PernyataanUntukSetiap):
-            self.kode.append(self._baris(
-                f"for {node.variabel} in {self.transpile(node.iterable)}:"
-            ))
+            iterable = self.transpile(node.iterable)
+            self.kode.append(self._tab() + f"for {node.variabel} in {iterable}:")
             self.indentasi += 1
             self._transpile_blok(node.tubuh)
             self.indentasi -= 1
             return None
 
         if isinstance(node, PernyataanUlangiSelama):
-            self.kode.append(self._baris(f"while {self.transpile(node.kondisi)}:"))
+            self.kode.append(self._tab() + f"while {self.transpile(node.kondisi)}:")
             self.indentasi += 1
             self._transpile_blok(node.tubuh)
             self.indentasi -= 1
             return None
 
         if isinstance(node, PernyataanImport):
-            self.kode.append(self._baris(f"import {node.modul}"))
+            self.kode.append(self._tab() + f"import {node.modul}")
             return None
 
         if isinstance(node, EkspresiPenugasan):
             for anotasi in node.anotasi or []:
-                if anotasi.tipe == "INT8":
-                    self.kode.append(self._baris(f"# @int8 - variabel {node.nama} 8-bit"))
-                elif anotasi.tipe == "INT128":
-                    self.kode.append(self._baris(f"# @int128 - variabel {node.nama} 128-bit"))
-            self.kode.append(self._baris(f"{node.nama} = {self.transpile(node.nilai)}"))
+                if getattr(anotasi, "tipe", None) == "INT8":
+                    self.kode.append(self._tab() + f"# @int8 - variabel {node.nama} 8-bit")
+                elif getattr(anotasi, "tipe", None) == "INT128":
+                    self.kode.append(self._tab() + f"# @int128 - variabel {node.nama} 128-bit")
+            self.kode.append(self._tab() + f"{node.nama} = {self.transpile(node.nilai)}")
             return None
 
         if isinstance(node, EkspresiVariabel):
@@ -148,30 +144,30 @@ class Transpiler:
 
     def _transpile_blok(self, blok):
         if not blok:
-            self.kode.append(self._baris("pass"))
+            self.kode.append(self._tab() + "pass")
             return
         for stmt in blok:
             self.transpile(stmt)
 
-    def _transpile_statement_line(self, node):
+    def _transpile_statement(self, node):
         if isinstance(node, EkspresiPenugasan):
-            self.kode.append(self._baris(
-                f"{node.nama} = {self.transpile(node.nilai)}"
-            ))
+            self.kode.append(self._tab() + f"{node.nama} = {self.transpile(node.nilai)}")
         elif isinstance(node, EkspresiPanggilan):
-            self.kode.append(self._baris(self.transpile(node)))
+            self.kode.append(self._tab() + self.transpile(node))
         else:
             hasil = self.transpile(node)
             if hasil is not None:
-                self.kode.append(self._baris(hasil))
+                self.kode.append(self._tab() + str(hasil))
+
+    def _tab(self):
+        return "    " * self.indentasi
 
     @staticmethod
-    def _nama_parameter(parameter):
-        if isinstance(parameter, str):
-            return parameter
-        if isinstance(parameter, tuple):
-            return parameter[0]
-        return getattr(parameter, "nilai", str(parameter))
-
-    def _baris(self, isi):
-        return "    " * self.indentasi + isi
+    def _param_ke_nama(param):
+        if isinstance(param, str):
+            return param
+        if isinstance(param, tuple):
+            return param[0]
+        if hasattr(param, "nilai"):
+            return param.nilai
+        return str(param)
