@@ -1,3 +1,5 @@
+import contextlib
+import io
 import os
 import sys
 import unittest
@@ -29,8 +31,34 @@ class PipelineTest(unittest.TestCase):
         self.assertIn("print(tambah(2, 3))", output)
         compile(output, "<maden-output>", "exec")
 
+    def test_generated_program_runs(self):
+        output = self.transpile(
+            "fungsi tambah(a, b) {\n"
+            "    kembali a + b\n"
+            "}\n\n"
+            "cetak(tambah(2, 3))\n"
+        )
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            exec(compile(output, "<maden-output>", "exec"), {})
+        self.assertEqual(captured.getvalue(), "5\n")
+
+    def test_relational_and_boolean_tokens(self):
+        tokens = Lexer("2 >= 1 && 3 != 4 <= 5 || 6 == 6").tokenisasi()
+        types = [token.tipe for token in tokens]
+        self.assertIn(TokenType.LEBIH_BESAR_SAMA, types)
+        self.assertIn(TokenType.TIDAK_SAMA, types)
+        self.assertIn(TokenType.LEBIH_KECIL_SAMA, types)
+        self.assertIn(TokenType.SAMA_DENGAN_DUA, types)
+        self.assertIn(TokenType.DAN, types)
+        self.assertIn(TokenType.ATAU, types)
+
     def test_relational_and_boolean_expression(self):
-        output = self.transpile("jika 2 >= 1 && 3 != 4 {\n    cetak(benar)\n}\n")
+        output = self.transpile(
+            "jika 2 >= 1 && 3 != 4 {\n"
+            "    cetak(benar)\n"
+            "}\n"
+        )
         self.assertIn("if ((2 >= 1) and (3 != 4)):", output)
         compile(output, "<maden-output>", "exec")
 
