@@ -15,66 +15,48 @@
 </head>
 <body>
 <h2>Maden tanpa Python</h2>
-<p class="info">Tulis kode Maden, lalu tekan Jalankan. File ini berjalan langsung di browser HP.</p>
+<p class="info">Interpreter Maden berjalan langsung di browser. Tidak memakai eval atau Python.</p>
 <textarea id="kode">fungsi tambah(a, b) {
     kembali a + b
 }
 
-fungsi main() {
-    cetak("Halo dari Maden!")
-    cetak(tambah(2, 3))
-}
-
-main()</textarea>
+cetak("Halo dari Maden!")
+cetak(tambah(2, 3))</textarea>
 <br>
 <button onclick="jalankan()">Jalankan</button>
 <button onclick="simpan()">Simpan</button>
 <button onclick="muat()">Muat</button>
 <button onclick="contoh()">Contoh</button>
-<button onclick="tampilkanJS()">Lihat JavaScript</button>
+<button onclick="lihatToken()">Lihat Token</button>
 <button onclick="bersihkan()">Bersihkan</button>
 <pre id="hasil"></pre>
 
+<script src="src-js/maden-lexer.js"></script>
+<script src="src-js/maden-parser.js"></script>
+<script src="src-js/maden-interpreter.js"></script>
 <script>
-function ubahKeJavaScript(source) {
-  const baris = source.replace(/\r/g, '').split('\n');
-  const hasil = [];
-
-  for (let s of baris) {
-    s = s.trim();
-    if (!s || s.startsWith('//')) continue;
-
-    s = s.replace(/^fungsi\s+([A-Za-z_]\w*)\s*\((.*?)\)\s*\{?$/, 'function $1($2) {');
-    s = s.replace(/^kembali\b/, 'return');
-    s = s.replace(/^cetak\s*\(/, 'print(');
-    s = s.replace(/^jika\s+(.+?)\s*\{\s*$/, 'if ($1) {');
-    s = s.replace(/^selain\s+jika\s+(.+?)\s*\{\s*$/, 'else if ($1) {');
-    s = s.replace(/^selain\s*\{\s*$/, 'else {');
-    s = s.replace(/^ulangi\s+selama\s+(.+?)\s*\{\s*$/, 'while ($1) {');
-    s = s.replace(/^untuk\s+setiap\s+(\w+)\s+dalam\s+(.+?)\s*\{\s*$/, 'for (const $1 of $2) {');
-    s = s.replace(/^ulangi\s*\((.*?);(.*?);(.*?)\)\s*\{\s*$/, 'for ($1; $2; $3) {');
-
-    s = s.replace(/\bbenar\b/g, 'true');
-    s = s.replace(/\bsalah\b/g, 'false');
-    s = s.replace(/\bkosong\b/g, 'null');
-    s = s.replace(/\bdan\b/g, '&&');
-    s = s.replace(/\batau\b/g, '||');
-    s = s.replace(/\b(?:tidak|not)\b/g, '!');
-    hasil.push(s);
-  }
-  return hasil.join('\n');
-}
-
 function jalankan() {
   const area = document.getElementById('hasil');
-  const keluaran = [];
-  const print = (...nilai) => keluaran.push(nilai.join(' '));
+  const output = [];
   try {
-    const kode = ubahKeJavaScript(document.getElementById('kode').value);
-    new Function('print', kode)(print);
-    area.textContent = keluaran.join('\n') || '(tidak ada keluaran)';
+    const tokens = tokenize(document.getElementById('kode').value);
+    const program = new Parser(tokens).parse();
+    new MadenInterpreter(text => output.push(text)).run(program);
+    area.textContent = output.join('\n') || '(tidak ada keluaran)';
   } catch (error) {
-    area.textContent = 'Error: ' + error.message;
+    area.textContent = 'Error: ' + (error.message || error);
+  }
+}
+
+function lihatToken() {
+  const area = document.getElementById('hasil');
+  try {
+    const tokens = tokenize(document.getElementById('kode').value);
+    area.textContent = tokens.map(token =>
+      `${token.type}(${JSON.stringify(token.value)}) - baris ${token.line}, kolom ${token.column}`
+    ).join('\n');
+  } catch (error) {
+    area.textContent = 'Error: ' + (error.message || error);
   }
 }
 
@@ -85,31 +67,26 @@ function simpan() {
 
 function muat() {
   const kode = localStorage.getItem('maden-kode');
-  document.getElementById('hasil').textContent = kode === null
-    ? 'Belum ada kode yang disimpan.'
-    : 'Kode berhasil dimuat.';
-  if (kode !== null) document.getElementById('kode').value = kode;
+  if (kode === null) {
+    document.getElementById('hasil').textContent = 'Belum ada kode yang disimpan.';
+    return;
+  }
+  document.getElementById('kode').value = kode;
+  document.getElementById('hasil').textContent = 'Kode berhasil dimuat.';
 }
 
 function contoh() {
-  document.getElementById('kode').value =
-`fungsi main() {
-    angka = 1
-    ulangi (i = 0; i < 3; i = i + 1) {
-        cetak(i)
-    }
-    jika angka == 1 {
-        cetak("Selesai")
-    }
+  document.getElementById('kode').value = `fungsi tambah(a, b) {
+    kembali a + b
+}
+
+fungsi main() {
+    cetak("Halo dari Maden!")
+    cetak(tambah(2, 3))
 }
 
 main()`;
   document.getElementById('hasil').textContent = 'Contoh dimuat.';
-}
-
-function tampilkanJS() {
-  document.getElementById('hasil').textContent =
-    ubahKeJavaScript(document.getElementById('kode').value);
 }
 
 function bersihkan() {
