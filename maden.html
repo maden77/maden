@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Maden - JavaScript</title>
+<title>Maden tanpa Python</title>
 <style>
   body { font-family: sans-serif; margin: 0; padding: 16px; background: #f2f2f2; }
   h2 { margin-top: 0; }
   textarea { width: 100%; min-height: 300px; box-sizing: border-box; font: 15px monospace; padding: 10px; }
-  button { margin: 10px 0; padding: 10px 18px; font-size: 16px; }
-  pre { background: #111; color: #0f0; padding: 12px; min-height: 80px; white-space: pre-wrap; }
+  button { margin: 8px 4px 8px 0; padding: 10px 16px; font-size: 15px; }
+  pre { background: #111; color: #0f0; padding: 12px; min-height: 80px; white-space: pre-wrap; overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -18,24 +18,29 @@
     kembali a + b
 }
 
-cetak("Halo dari Maden!")
-cetak(tambah(2, 3))</textarea>
+fungsi main() {
+    cetak("Halo dari Maden!")
+    cetak(tambah(2, 3))
+}
+
+main()</textarea>
 <br>
 <button onclick="jalankan()">Jalankan</button>
+<button onclick="bersihkan()">Bersihkan</button>
+<button onclick="tampilkanJS()">Lihat JavaScript</button>
 <pre id="hasil"></pre>
 
 <script>
 function ubahKeJavaScript(source) {
   const baris = source.replace(/\r/g, '').split('\n');
   const hasil = [];
-  let blok = [];
 
-  for (let i = 0; i < baris.length; i++) {
-    let s = baris[i].trim();
+  for (let s of baris) {
+    s = s.trim();
     if (!s || s.startsWith('//')) continue;
 
-    s = s.replace(/^fungsi\s+([A-Za-z_]\w*)\s*\((.*?)\)\s*\{?$/,
-      'function $1($2) {');
+    // Keyword dan bentuk blok Maden.
+    s = s.replace(/^fungsi\s+([A-Za-z_]\w*)\s*\((.*?)\)\s*\{?$/, 'function $1($2) {');
     s = s.replace(/^kembali\b/, 'return');
     s = s.replace(/^cetak\s*\(/, 'print(');
     s = s.replace(/^jika\s+(.+?)\s*\{\s*$/, 'if ($1) {');
@@ -45,6 +50,7 @@ function ubahKeJavaScript(source) {
     s = s.replace(/^untuk\s+setiap\s+(\w+)\s+dalam\s+(.+?)\s*\{\s*$/, 'for (const $1 of $2) {');
     s = s.replace(/^ulangi\s*\((.*?);(.*?);(.*?)\)\s*\{\s*$/, 'for ($1; $2; $3) {');
 
+    // Keyword nilai dan operator logika.
     s = s.replace(/\bbenar\b/g, 'true');
     s = s.replace(/\bsalah\b/g, 'false');
     s = s.replace(/\bkosong\b/g, 'null');
@@ -52,27 +58,29 @@ function ubahKeJavaScript(source) {
     s = s.replace(/\batau\b/g, '||');
     s = s.replace(/\btidak\b/g, '!');
 
-    // Tutup blok Maden tetap menggunakan kurung JavaScript.
     hasil.push(s);
   }
-
   return hasil.join('\n');
 }
 
 function jalankan() {
-  const areaHasil = document.getElementById('hasil');
-  const source = document.getElementById('kode').value;
-  const kodeJS = ubahKeJavaScript(source);
+  const area = document.getElementById('hasil');
   const keluaran = [];
   const print = (...nilai) => keluaran.push(nilai.join(' '));
-
   try {
-    // File ini memang menjalankan kode yang ditulis sendiri di editor.
-    new Function('print', kodeJS)(print);
-    areaHasil.textContent = keluaran.join('\n');
+    new Function('print', ubahKeJavaScript(document.getElementById('kode').value))(print);
+    area.textContent = keluaran.join('\n') || '(tidak ada keluaran)';
   } catch (error) {
-    areaHasil.textContent = 'Error: ' + error.message + '\n\nJavaScript hasil konversi:\n' + kodeJS;
+    area.textContent = 'Error: ' + error.message;
   }
+}
+
+function tampilkanJS() {
+  document.getElementById('hasil').textContent = ubahKeJavaScript(document.getElementById('kode').value);
+}
+
+function bersihkan() {
+  document.getElementById('hasil').textContent = '';
 }
 </script>
 </body>
