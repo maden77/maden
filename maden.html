@@ -8,12 +8,14 @@
   body { font-family: sans-serif; margin: 0; padding: 16px; background: #f2f2f2; }
   h2 { margin-top: 0; }
   textarea { width: 100%; min-height: 300px; box-sizing: border-box; font: 15px monospace; padding: 10px; }
-  button { margin: 8px 4px 8px 0; padding: 10px 16px; font-size: 15px; }
+  button { margin: 8px 4px 8px 0; padding: 10px 14px; font-size: 15px; }
   pre { background: #111; color: #0f0; padding: 12px; min-height: 80px; white-space: pre-wrap; overflow-x: auto; }
+  .info { color: #555; font-size: 14px; }
 </style>
 </head>
 <body>
 <h2>Maden tanpa Python</h2>
+<p class="info">Tulis kode Maden, lalu tekan Jalankan. File ini berjalan langsung di browser HP.</p>
 <textarea id="kode">fungsi tambah(a, b) {
     kembali a + b
 }
@@ -26,8 +28,11 @@ fungsi main() {
 main()</textarea>
 <br>
 <button onclick="jalankan()">Jalankan</button>
-<button onclick="bersihkan()">Bersihkan</button>
+<button onclick="simpan()">Simpan</button>
+<button onclick="muat()">Muat</button>
+<button onclick="contoh()">Contoh</button>
 <button onclick="tampilkanJS()">Lihat JavaScript</button>
+<button onclick="bersihkan()">Bersihkan</button>
 <pre id="hasil"></pre>
 
 <script>
@@ -39,7 +44,6 @@ function ubahKeJavaScript(source) {
     s = s.trim();
     if (!s || s.startsWith('//')) continue;
 
-    // Keyword dan bentuk blok Maden.
     s = s.replace(/^fungsi\s+([A-Za-z_]\w*)\s*\((.*?)\)\s*\{?$/, 'function $1($2) {');
     s = s.replace(/^kembali\b/, 'return');
     s = s.replace(/^cetak\s*\(/, 'print(');
@@ -50,14 +54,12 @@ function ubahKeJavaScript(source) {
     s = s.replace(/^untuk\s+setiap\s+(\w+)\s+dalam\s+(.+?)\s*\{\s*$/, 'for (const $1 of $2) {');
     s = s.replace(/^ulangi\s*\((.*?);(.*?);(.*?)\)\s*\{\s*$/, 'for ($1; $2; $3) {');
 
-    // Keyword nilai dan operator logika.
     s = s.replace(/\bbenar\b/g, 'true');
     s = s.replace(/\bsalah\b/g, 'false');
     s = s.replace(/\bkosong\b/g, 'null');
     s = s.replace(/\bdan\b/g, '&&');
     s = s.replace(/\batau\b/g, '||');
-    s = s.replace(/\btidak\b/g, '!');
-
+    s = s.replace(/\b(?:tidak|not)\b/g, '!');
     hasil.push(s);
   }
   return hasil.join('\n');
@@ -68,15 +70,46 @@ function jalankan() {
   const keluaran = [];
   const print = (...nilai) => keluaran.push(nilai.join(' '));
   try {
-    new Function('print', ubahKeJavaScript(document.getElementById('kode').value))(print);
+    const kode = ubahKeJavaScript(document.getElementById('kode').value);
+    new Function('print', kode)(print);
     area.textContent = keluaran.join('\n') || '(tidak ada keluaran)';
   } catch (error) {
     area.textContent = 'Error: ' + error.message;
   }
 }
 
+function simpan() {
+  localStorage.setItem('maden-kode', document.getElementById('kode').value);
+  document.getElementById('hasil').textContent = 'Kode berhasil disimpan di HP.';
+}
+
+function muat() {
+  const kode = localStorage.getItem('maden-kode');
+  document.getElementById('hasil').textContent = kode === null
+    ? 'Belum ada kode yang disimpan.'
+    : 'Kode berhasil dimuat.';
+  if (kode !== null) document.getElementById('kode').value = kode;
+}
+
+function contoh() {
+  document.getElementById('kode').value =
+`fungsi main() {
+    angka = 1
+    ulangi (i = 0; i < 3; i = i + 1) {
+        cetak(i)
+    }
+    jika angka == 1 {
+        cetak("Selesai")
+    }
+}
+
+main()`;
+  document.getElementById('hasil').textContent = 'Contoh dimuat.';
+}
+
 function tampilkanJS() {
-  document.getElementById('hasil').textContent = ubahKeJavaScript(document.getElementById('kode').value);
+  document.getElementById('hasil').textContent =
+    ubahKeJavaScript(document.getElementById('kode').value);
 }
 
 function bersihkan() {
