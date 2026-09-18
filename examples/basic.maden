@@ -1,0 +1,4 @@
+fungsi tambah(a, b) {
+      kembali a + b
+      }
+      cetak(tambah(2, 3))
