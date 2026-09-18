@@ -23,7 +23,7 @@ untuk setiap nilai dalam angka {
 <script src="src-js/maden-interpreter-array.js"></script>
 <script>
 function jalankan(){const area=document.getElementById('hasil'),out=[];try{const ast=new Parser(tokenize(document.getElementById('kode').value)).parse();new MadenInterpreter(v=>out.push(v)).run(ast);area.textContent=out.join('\n')||'(tidak ada keluaran)';}catch(e){area.textContent='Error: '+(e.message||e);}}
-function lihatToken(){try{area=document.getElementById('hasil');area.textContent=tokenize(document.getElementById('kode').value).map(t=>`${t.type}(${JSON.stringify(t.value)}) - baris ${t.line}, kolom ${t.column}`).join('\n');}catch(e){document.getElementById('hasil').textContent='Error: '+e.message;}}
+function lihatToken(){const area=document.getElementById('hasil');try{area.textContent=tokenize(document.getElementById('kode').value).map(t=>`${t.type}(${JSON.stringify(t.value)}) - baris ${t.line}, kolom ${t.column}`).join('\n');}catch(e){area.textContent='Error: '+(e.message||e);}}
 function simpan(){localStorage.setItem('maden-kode',document.getElementById('kode').value);document.getElementById('hasil').textContent='Kode berhasil disimpan di HP.';}
 function muat(){const k=localStorage.getItem('maden-kode');document.getElementById('hasil').textContent=k===null?'Belum ada kode yang disimpan.':'Kode berhasil dimuat.';if(k!==null)document.getElementById('kode').value=k;}
 function contoh(){document.getElementById('kode').value=`fungsi kuadrat(x) {
